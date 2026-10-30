@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Kashmir Hotel Recommendation | ML Decision Tree</title>
+  <style>
+    /* ============ 1. THEME TOKENS ============ */
+    :root {
+      /* --h (hue) and --s (saturation) are overwritten by JS with the colours found in the hero photo.
+         Every brand colour below is built from them, so the whole UI follows the photo. */
+      --h: 195;
+      --s: 70%;
+      --bg: hsl(var(--h) 35% 96%);
+      --surface: #ffffff;
+      --surface-2: hsl(var(--h) 30% 98%);
+      --ink: #0f172a;
+      --muted: #64748b;
+      --line: hsl(var(--h) 25% 89%);
+      --brand: hsl(var(--h) var(--s) 30%);
+      --brand-dark: hsl(var(--h) var(--s) 22%);
+      --brand-soft: hsl(var(--h) 70% 93%);
+      --glow: hsl(var(--h) var(--s) 35% / .30);
+      --ok: #047857;
+      --ok-soft: #d1fae5;
+      --err: #b91c1c;
+      --err-soft: #fee2e2;
+      --radius: 14px;
+      --shadow: 0 1px 2px rgba(15,23,42,.05), 0 10px 30px rgba(15,23,42,.06);
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: hsl(var(--h) 35% 7%); --surface: hsl(var(--h) 30% 11%); --surface-2: hsl(var(--h) 30% 9%);
+        --ink: #e6edf7; --muted: #94a3b8; --line: hsl(var(--h) 25% 20%);
+        --brand: hsl(var(--h) 75% 58%); --brand-dark: hsl(var(--h) 80% 72%); --brand-soft: hsl(var(--h) 50% 15%);
+        --glow: hsl(var(--h) 75% 58% / .30);
+        --ok: #34d399; --ok-soft: #062e22; --err: #f87171; --err-soft: #3a1212;
+        --shadow: 0 10px 30px rgba(0,0,0,.35);
+      }
+    }
+
+    /* ============ 2. BASE ============ */
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body { margin: 0; font-family: Inter, "Segoe UI", system-ui, Arial, sans-serif; background: var(--bg); color: var(--ink); line-height: 1.5; }
+    .container { max-width: 1180px; margin: auto; padding: 0 20px; }
+
+    /* ============ 3. HERO ============ */
+    .hero { position: relative; overflow: hidden; color: #fff; padding: 56px 0 84px;
+      background: radial-gradient(1200px 400px at 85% -10%, hsl(var(--h) 80% 55% / .35), transparent 60%),
+                  linear-gradient(135deg, hsl(var(--h) 60% 10%) 0%, hsl(var(--h) 55% 20%) 55%, hsl(var(--h) var(--s) 30%) 100%); }
+    /* Photo layer (filled by JS from Wikimedia Commons) + dark shade so text stays readable */
+    .hero-bg { position: absolute; inset: 0; z-index: 0; background-size: cover; background-position: center 45%; opacity: 0; transition: opacity 1.4s ease; }
+    .hero-bg.on { opacity: 1; }
+    .hero-shade { position: absolute; inset: 0; z-index: 1; background: linear-gradient(135deg, hsl(var(--h) 60% 8% / .88) 0%, hsl(var(--h) 55% 16% / .62) 55%, hsl(var(--h) var(--s) 30% / .38) 100%); }
+    .hero .container { position: relative; z-index: 2; }
+    .photo-credit { display: block; margin-top: 6px; font-size: .78rem; opacity: .8; }
+    .photo-credit a { color: inherit; }
+    .badges { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+    .badge { font-size: .74rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+      padding: 5px 11px; border-radius: 999px; background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.25); }
+    .hero h1 { margin: 0 0 10px; font-size: clamp(1.8rem, 4vw, 2.9rem); line-height: 1.15; letter-spacing: -.02em; }
+    .hero p { margin: 0; max-width: 680px; color: #cdeaf5; font-size: 1.05rem; }
+
+    /* ============ 4. LAYOUT ============ */
+    main { margin-top: -48px; padding-bottom: 56px; position: relative; z-index: 2; }
+    .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); padding: 24px; margin-bottom: 20px; }
+    .card-title { display: flex; align-items: center; gap: 12px; margin: 0 0 4px; font-size: 1.15rem; }
+    .card-sub { margin: 0 0 18px; color: var(--muted); font-size: .92rem; }
+
+    /* How it works */
+    .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+    .step { display: flex; gap: 12px; align-items: flex-start; padding: 14px; border: 1px dashed var(--line); border-radius: 12px; background: var(--surface-2); }
+    .step b { display: grid; place-items: center; flex: none; width: 32px; height: 32px; border-radius: 50%; background: var(--brand); color: #fff; font-size: .9rem; }
+    .step strong { display: block; font-size: .95rem; }
+    .step span { color: var(--muted); font-size: .85rem; }
+
+    /* Examples */
+    .examples { display: flex; gap: 10px; flex-wrap: wrap; }
+    button { font: inherit; cursor: pointer; border: 0; border-radius: 10px; padding: 11px 16px; font-weight: 650; font-size: .93rem; transition: transform .12s, box-shadow .12s, background .12s; }
+    button:active { transform: translateY(1px); }
+    .btn-ex { background: var(--brand-soft); color: var(--brand-dark); border: 1px solid var(--line); }
+    .btn-ex:hover { box-shadow: 0 4px 12px var(--glow); }
+    .btn-ghost { background: transparent; color: var(--muted); border: 1px solid var(--line); }
+    .btn-ghost:hover { background: var(--surface-2); }
+    .btn-primary { background: linear-gradient(135deg, var(--brand), var(--brand-dark)); color: #fff; padding: 14px 28px; font-size: 1rem; box-shadow: 0 8px 20px var(--glow); }
+    .btn-primary:hover { box-shadow: 0 10px 26px var(--glow); filter: brightness(1.08); }
+    .btn-primary[disabled] { opacity: .7; cursor: wait; }
+
+    /* Result cards */
+    .result { display: flex; gap: 18px; align-items: center; border-left: 6px solid var(--ok); background: linear-gradient(90deg, var(--ok-soft), var(--surface) 55%); }
+    .result.error { border-left-color: var(--err); background: linear-gradient(90deg, var(--err-soft), var(--surface) 55%); }
+    .result .icon { flex: none; display: grid; place-items: center; width: 54px; height: 54px; border-radius: 50%; background: var(--ok); color: #fff; font-size: 1.6rem; }
+    .result.error .icon { background: var(--err); }
+    .result h2 { margin: 0; font-size: .85rem; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+    .prediction { font-size: clamp(1.4rem, 3vw, 2rem); font-weight: 800; color: var(--ok); overflow-wrap: anywhere; margin: 2px 0; }
+    .error .prediction { color: var(--err); font-size: 1.15rem; }
+    .small { color: var(--muted); font-size: .86rem; margin: 0; }
+
+    /* ============ 5. FORM ============ */
+    .section-head { display: flex; align-items: center; gap: 12px; margin: 0 0 16px; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
+    .section-head .num { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 10px; background: var(--brand-soft); font-size: 1.1rem; }
+    .section-head h3 { margin: 0; font-size: 1.05rem; }
+    .section-head p { margin: 0; color: var(--muted); font-size: .84rem; }
+    .grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+    .field { min-width: 0; }
+    label { display: block; font-size: .82rem; font-weight: 650; margin: 0 0 6px; color: var(--ink); }
+    input, select { width: 100%; font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 11px 12px; transition: border-color .15s, box-shadow .15s; }
+    input:hover, select:hover { border-color: #94a3b8; }
+    input:focus, select:focus { outline: none; border-color: var(--brand); box-shadow: 0 0 0 4px var(--glow); }
+    .ctrl { position: relative; }
+    .ctrl.pre::before, .ctrl.suf::after { position: absolute; top: 50%; transform: translateY(-50%); color: var(--muted); font-size: .88rem; pointer-events: none; }
+    .ctrl.pre::before { content: attr(data-u); left: 12px; }
+    .ctrl.pre input { padding-left: 28px; }
+    .ctrl.suf::after { content: attr(data-u); right: 12px; }
+    .ctrl.suf input { padding-right: 46px; }
+    .flash { animation: flash .9s ease; }
+    @keyframes flash { 0% { background: var(--brand-soft); } 100% { background: var(--surface); } }
+
+    .actions { position: sticky; bottom: 0; z-index: 5; display: flex; gap: 12px; flex-wrap: wrap; align-items: center; justify-content: space-between;
+      background: color-mix(in srgb, var(--surface) 92%, transparent); backdrop-filter: blur(8px); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 18px; box-shadow: var(--shadow); }
+    .actions .left { display: flex; gap: 10px; flex-wrap: wrap; }
+
+    /* Toast */
+    #toast { position: fixed; left: 50%; bottom: 96px; transform: translate(-50%, 20px); background: #0f172a; color: #fff; padding: 10px 18px; border-radius: 999px; font-size: .88rem; opacity: 0; pointer-events: none; transition: .25s; z-index: 20; }
+    #toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+    footer { text-align: center; color: var(--muted); font-size: .84rem; padding: 8px 0 30px; }
+
+    /* ============ 6. RESPONSIVE ============ */
+    @media (max-width: 1024px) { .container { padding: 0 16px; } }
+    @media (max-width: 900px) {
+      .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .steps { grid-template-columns: 1fr; }
+      .hero p { font-size: 1rem; }
+    }
+    @media (max-width: 560px) {
+      .grid { grid-template-columns: 1fr; gap: 14px; }
+      .card { padding: 16px; border-radius: 12px; }
+      .hero { padding: 36px 0 68px; }
+      .hero-bg { background-position: center 30%; }
+      input, select { font-size: 16px; padding: 12px; }          /* 16px stops iOS zoom-on-focus */
+      .result { flex-direction: column; align-items: flex-start; }
+      .examples button { flex: 1 1 100%; }
+      .actions { padding: 10px; }
+      .actions .left { display: none; }                          /* keep the sticky bar slim on phones */
+      .btn-primary { width: 100%; }
+      #toast { bottom: 84px; max-width: 90vw; text-align: center; }
+    }
+    @media (max-width: 360px) { .badge { font-size: .68rem; padding: 4px 9px; } }
+    @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } html { scroll-behavior: auto; } }
+  </style>
+</head>
+<body>
+
+<!-- ============ HERO ============ -->
+<header class="hero">
+  <div class="hero-bg" id="hero-bg"></div>
+  <div class="hero-shade"></div>
+  <div class="container">
+    <div class="badges">
+      <span class="badge">Machine Learning</span>
+      <span class="badge">Decision Tree</span>
+      <span class="badge">Flask + scikit-learn</span>
+    </div>
+    <h1>Kashmir Hotel Recommendation System</h1>
+    <p>Enter your trip, budget, property and location details &mdash; our trained decision-tree model will predict the best hotel recommendation for you.</p>
+  </div>
+</header>
+
+<main class="container">
+
+  <!-- ============ RESULT (shown only after prediction) ============ -->
+
+  <section class="card result" id="result" role="status">
+    <div class="icon">&#10003;</div>
+    <div>
+      <h2>Prediction result</h2>
+      <div class="prediction">{{ prediction }}</div>
+      <p class="small">Predicted label returned by decision_tree.pkl</p>
+    </div>
+  </section>
+  
+  <section class="card result error" id="result" role="alert">
+    <div class="icon">!</div>
+    <div>
+      <h2>Could not make a prediction</h2>
+      <div class="prediction">{{ error }}</div>
+      <p class="small">Check the Flask console for the full traceback and confirm the model's expected input format.</p>
+    </div>
+  </section>
+ 
+
+  <!-- ============ HOW IT WORKS ============ -->
+  <section class="card">
+    <h2 class="card-title">How it works</h2>
+    <p class="card-sub">Three simple steps &mdash; perfect for demonstrating an end-to-end ML project.</p>
+    <div class="steps">
+      <div class="step"><b>1</b><div><strong>Load a sample</strong><span>Pick an example or type your own values.</span></div></div>
+      <div class="step"><b>2</b><div><strong>Review details</strong><span>Edit any field across the 5 sections below.</span></div></div>
+      <div class="step"><b>3</b><div><strong>Get prediction</strong><span>Flask sends data to the model and shows the label.</span></div></div>
+    </div>
+  </section>
+
+  <!-- ============ SAMPLE INPUTS ============ -->
+  <section class="card">
+    <h2 class="card-title">&#9889; Try the sample inputs</h2>
+    <p class="card-sub">Load one example, then click &ldquo;Predict recommendation&rdquo;. You can edit any field before submitting.</p>
+    <div class="examples">
+      <button class="btn-ex" type="button" onclick="loadExample(0)">Example 1 &middot; Gulmarg</button>
+      <button class="btn-ex" type="button" onclick="loadExample(1)">Example 2 &middot; Srinagar</button>
+      <button class="btn-ex" type="button" onclick="loadExample(2)">Example 3 &middot; Gulmarg</button>
+      <button class="btn-ghost" type="button" onclick="document.getElementById('hotel-form').reset(); toast('Form reset to defaults')">Reset form</button>
+    </div>
+  </section>
+
+  <!-- ============ FORM (field order unchanged from original) ============ -->
+  <form id="hotel-form" method="POST" action="#">
+
+    <!-- 1. Budget & group -->
+    <section class="card">
+      <div class="section-head"><div class="num">&#128176;</div><div><h3>1. Budget &amp; Group</h3><p>Money available and who is travelling</p></div></div>
+      <div class="grid">
+        <div class="field"><label for="user_budget_total_inr">Total budget</label><div class="ctrl pre" data-u="&#8377;"><input id="user_budget_total_inr" name="user_budget_total_inr" type="number" min="0" step="any" required value="65400"></div></div>
+        <div class="field"><label for="user_daily_budget_inr">Daily budget</label><div class="ctrl pre" data-u="&#8377;"><input id="user_daily_budget_inr" name="user_daily_budget_inr" type="number" min="0" step="any" required value="32700"></div></div>
+        <div class="field"><label for="stay_days">Stay days</label><input id="stay_days" name="stay_days" type="number" min="1" required value="2"></div>
+        <div class="field"><label for="family_count">Family / group count</label><input id="family_count" name="family_count" type="number" min="1" required value="4"></div>
+        <div class="field"><label for="adults_count">Adults</label><input id="adults_count" name="adults_count" type="number" min="0" required value="4"></div>
+        <div class="field"><label for="children_count">Children</label><input id="children_count" name="children_count" type="number" min="0" required value="0"></div>
+        <div class="field"><label for="seniors_count">Seniors</label><input id="seniors_count" name="seniors_count" type="number" min="0" required value="0"></div>
+        <div class="field"><label for="rooms_required">Rooms required</label><input id="rooms_required" name="rooms_required" type="number" min="1" required value="1"></div>
+      </div>
+    </section>
+
+    <!-- 2. Trip preferences -->
+    <section class="card">
+      <div class="section-head"><div class="num">&#127956;&#65039;</div><div><h3>2. Trip Preferences</h3><p>Season, purpose, food and destination</p></div></div>
+      <div class="grid">
+        <div class="field"><label for="travel_season">Travel season</label><select id="travel_season" name="travel_season" required><option>Snow_Winter_Dec_Feb</option><option>Lush_Monsoon_Jul_Aug</option><option>Chinar_Autumn_Sep_Nov</option><option>Peak_Summer_May_Jun</option><option>Tulip_Spring_Mar_Apr</option></select></div>
+        <div class="field"><label for="trip_purpose">Trip purpose</label><select id="trip_purpose" name="trip_purpose" required><option>Winter_Ski_Adventure</option><option>Senior_Leisure_Tour</option><option>Family_Vacation</option><option>Offbeat_Nature_Retreat</option><option>Alpine_Trekking</option><option>Honeymoon_Couple</option></select></div>
+        <div class="field"><label for="preferred_property_type">Preferred property type</label><select id="preferred_property_type" name="preferred_property_type" required><option>Boutique_Cottage</option><option>Luxury_Resort</option><option>JKTDC_Tourist_Bungalow</option><option>Hotel</option><option>Valley_Homestay</option><option>Heritage_Houseboat</option></select></div>
+        <div class="field"><label for="dietary_preference">Dietary preference</label><select id="dietary_preference" name="dietary_preference" required><option>Multi_Cuisine</option><option>Continental_Halal</option><option>Kashmiri_Wazwan</option><option>Pure_Veg_Jain</option></select></div>
+        <div class="field"><label for="district">District / destination</label><select id="district" name="district" required><option>Baramulla (Gulmarg)</option><option>Srinagar</option><option>Anantnag (Pahalgam)</option><option>Ganderbal (Sonamarg)</option><option>Shopian (Peer Ki Gali)</option><option>Kupwara (Lolab &amp; Keran)</option><option>Kulgam (Aharbal)</option><option>Bandipora (Gurez Valley)</option><option>Pulwama (Tral &amp; Shikargah)</option><option>Budgam (Yusmarg &amp; Doodhpathri)</option></select></div>
+      </div>
+    </section>
+
+    <!-- 3. Property & pricing -->
+    <section class="card">
+      <div class="section-head"><div class="num">&#127976;</div><div><h3>3. Property &amp; Pricing</h3><p>Hotel quality, ratings and costs</p></div></div>
+      <div class="grid">
+        <div class="field"><label for="property_type">Property type (dataset feature)</label><select id="property_type" name="property_type" required><option>Boutique_Cottage</option><option>Luxury_Resort</option><option>JKTDC_Tourist_Bungalow</option><option>Hotel</option><option>Valley_Homestay</option><option>Heritage_Houseboat</option></select></div>
+        <div class="field"><label for="star_category">Star category</label><select id="star_category" name="star_category" required><option>5</option><option>4</option><option selected>3</option><option>2</option><option>1</option><option>0</option></select></div>
+        <div class="field"><label for="google_rating">Google rating (0&ndash;5)</label><div class="ctrl suf" data-u="&#9733;"><input id="google_rating" name="google_rating" type="number" min="0" max="5" step="0.1" required value="4.8"></div></div>
+        <div class="field"><label for="review_count">Review count</label><input id="review_count" name="review_count" type="number" min="0" required value="2464"></div>
+        <div class="field"><label for="base_price_per_night_inr">Base price / night</label><div class="ctrl pre" data-u="&#8377;"><input id="base_price_per_night_inr" name="base_price_per_night_inr" type="number" min="0" step="any" required value="13600"></div></div>
+        <div class="field"><label for="seasonal_room_rate_inr">Seasonal room rate</label><div class="ctrl pre" data-u="&#8377;"><input id="seasonal_room_rate_inr" name="seasonal_room_rate_inr" type="number" min="0" step="any" required value="20150"></div></div>
+        <div class="field"><label for="estimated_total_stay_cost_inr">Estimated total stay cost</label><div class="ctrl pre" data-u="&#8377;"><input id="estimated_total_stay_cost_inr" name="estimated_total_stay_cost_inr" type="number" min="0" step="any" required value="40300"></div></div>
+        <div class="field"><label for="budget_fit_ratio">Budget fit ratio</label><input id="budget_fit_ratio" name="budget_fit_ratio" type="number" min="0" step="any" required value="0.616"></div>
+        <div class="field"><label for="max_guests_per_room">Max guests per room</label><input id="max_guests_per_room" name="max_guests_per_room" type="number" min="1" required value="4"></div>
+      </div>
+    </section>
+
+    <!-- 4. Amenities & requirements -->
+    <section class="card">
+      <div class="section-head"><div class="num">&#128293;</div><div><h3>4. Amenities &amp; Requirements</h3><p>Sent to the model as 1 (Yes) or 0 (No)</p></div></div>
+      <div class="grid">
+        <div class="field"><label for="has_central_heating_bukhari">Central heating / bukhari available</label><select id="has_central_heating_bukhari" name="has_central_heating_bukhari"><option value="1">Yes (1)</option><option value="0">No (0)</option></select></div>
+        <div class="field"><label for="has_power_backup_24x7">24&times;7 power backup</label><select id="has_power_backup_24x7" name="has_power_backup_24x7"><option value="1">Yes (1)</option><option value="0">No (0)</option></select></div>
+        <div class="field"><label for="has_mountain_or_lake_view">Mountain / lake view</label><select id="has_mountain_or_lake_view" name="has_mountain_or_lake_view"><option value="1">Yes (1)</option><option value="0">No (0)</option></select></div>
+        <div class="field"><label for="has_wazwan_kitchen">Wazwan kitchen</label><select id="has_wazwan_kitchen" name="has_wazwan_kitchen"><option value="1">Yes (1)</option><option value="0">No (0)</option></select></div>
+        <div class="field"><label for="requires_central_heating">Requires central heating</label><select id="requires_central_heating" name="requires_central_heating"><option value="1">Yes (1)</option><option value="0">No (0)</option></select></div>
+        <div class="field"><label for="requires_scenic_view">Requires scenic view</label><select id="requires_scenic_view" name="requires_scenic_view"><option value="1">Yes (1)</option><option value="0">No (0)</option></select></div>
+      </div>
+    </section>
+
+    <!-- 5. Location & score -->
+    <section class="card">
+      <div class="section-head"><div class="num">&#128205;</div><div><h3>5. Location &amp; Score</h3><p>Distances, coordinates and suitability</p></div></div>
+      <div class="grid">
+        <div class="field"><label for="distance_to_sxr_airport_km">Distance to SXR airport</label><div class="ctrl suf" data-u="km"><input id="distance_to_sxr_airport_km" name="distance_to_sxr_airport_km" type="number" min="0" step="any" required value="56.5"></div></div>
+        <div class="field"><label for="distance_to_landmark_km">Distance to landmark</label><div class="ctrl suf" data-u="km"><input id="distance_to_landmark_km" name="distance_to_landmark_km" type="number" min="0" step="any" required value="1.1"></div></div>
+        <div class="field"><label for="latitude">Latitude</label><input id="latitude" name="latitude" type="number" step="any" required value="34.0403"></div>
+        <div class="field"><label for="longitude">Longitude</label><input id="longitude" name="longitude" type="number" step="any" required value="74.3789"></div>
+        <div class="field"><label for="altitude_m">Altitude</label><div class="ctrl suf" data-u="m"><input id="altitude_m" name="altitude_m" type="number" step="any" required value="2676"></div></div>
+        <div class="field"><label for="suitability_score">Suitability score</label><input id="suitability_score" name="suitability_score" type="number" step="any" required value="99.8"></div>
+      </div>
+    </section>
+
+    <!-- Sticky action bar -->
+    <div class="actions">
+      <div class="left">
+        <button class="btn-ghost" type="button" onclick="loadExample(0)">Restore example 1</button>
+      </div>
+      <button class="btn-primary" id="submit-btn" type="submit">Predict recommendation &rarr;</button>
+    </div>
+  </form>
+
+  <p class="small" style="margin-top:18px">Model note: this page sends the fields to Flask in the listed order. The Python code deliberately does not implement OneHotEncoder or any other encoding.</p>
+</main>
+
+<footer>Built with Flask &amp; scikit-learn &middot; BCA Machine Learning Project
+  <span class="photo-credit" id="photo-credit"></span>
+</footer>
+<div id="toast" role="status"></div>
+
+<script>
+/* ---------- Sample data (unchanged) ---------- */
+const examples = [
+  {
+    user_budget_total_inr:65400,user_daily_budget_inr:32700,stay_days:2,family_count:4,adults_count:4,children_count:0,seniors_count:0,rooms_required:1,
+    travel_season:"Snow_Winter_Dec_Feb",trip_purpose:"Winter_Ski_Adventure",preferred_property_type:"Boutique_Cottage",requires_central_heating:1,requires_scenic_view:1,dietary_preference:"Multi_Cuisine",district:"Baramulla (Gulmarg)",property_type:"Boutique_Cottage",star_category:5,google_rating:4.8,review_count:2464,base_price_per_night_inr:13600,seasonal_room_rate_inr:20150,estimated_total_stay_cost_inr:40300,budget_fit_ratio:0.616,max_guests_per_room:4,has_central_heating_bukhari:1,has_power_backup_24x7:1,has_mountain_or_lake_view:1,has_wazwan_kitchen:1,distance_to_sxr_airport_km:56.5,distance_to_landmark_km:1.1,latitude:34.0403,longitude:74.3789,altitude_m:2676,suitability_score:99.8
+  },
+  {
+    user_budget_total_inr:176400,user_daily_budget_inr:19600,stay_days:9,family_count:3,adults_count:3,children_count:0,seniors_count:0,rooms_required:1,
+    travel_season:"Snow_Winter_Dec_Feb",trip_purpose:"Offbeat_Nature_Retreat",preferred_property_type:"Valley_Homestay",requires_central_heating:1,requires_scenic_view:0,dietary_preference:"Kashmiri_Wazwan",district:"Srinagar",property_type:"Valley_Homestay",star_category:3,google_rating:4.5,review_count:687,base_price_per_night_inr:5500,seasonal_room_rate_inr:5500,estimated_total_stay_cost_inr:49500,budget_fit_ratio:0.281,max_guests_per_room:3,has_central_heating_bukhari:1,has_power_backup_24x7:1,has_mountain_or_lake_view:1,has_wazwan_kitchen:0,distance_to_sxr_airport_km:24.2,distance_to_landmark_km:1,latitude:34.1537,longitude:74.8941,altitude_m:1741,suitability_score:99.8
+  },
+  {
+    user_budget_total_inr:122500,user_daily_budget_inr:17500,stay_days:7,family_count:5,adults_count:4,children_count:1,seniors_count:0,rooms_required:2,
+    travel_season:"Snow_Winter_Dec_Feb",trip_purpose:"Winter_Ski_Adventure",preferred_property_type:"Boutique_Cottage",requires_central_heating:1,requires_scenic_view:0,dietary_preference:"Multi_Cuisine",district:"Baramulla (Gulmarg)",property_type:"Boutique_Cottage",star_category:5,google_rating:4.3,review_count:1228,base_price_per_night_inr:13300,seasonal_room_rate_inr:18350,estimated_total_stay_cost_inr:256900,budget_fit_ratio:2.097,max_guests_per_room:4,has_central_heating_bukhari:1,has_power_backup_24x7:1,has_mountain_or_lake_view:1,has_wazwan_kitchen:1,distance_to_sxr_airport_km:57.4,distance_to_landmark_km:2.5,latitude:34.0439,longitude:74.3781,altitude_m:2683,suitability_score:54.6
+  }
+];
+
+/* ---------- Toast helper ---------- */
+let toastTimer;
+function toast(msg) {
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove("show"), 2200);
+}
+
+/* ---------- Fill the form from an example ---------- */
+function loadExample(index) {
+  const data = examples[index];
+  for (const [key, value] of Object.entries(data)) {
+    const field = document.getElementById(key);
+    if (field) {
+      field.value = String(value);
+      field.classList.remove("flash");
+      void field.offsetWidth;            // restart animation
+      field.classList.add("flash");
+    }
+  }
+  toast("Example " + (index + 1) + " loaded");
+  document.getElementById("hotel-form").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+/* ---------- Loading state on submit ---------- */
+document.getElementById("hotel-form").addEventListener("submit", function () {
+  const btn = document.getElementById("submit-btn");
+  btn.disabled = true;
+  btn.textContent = "Predicting...";
+});
+
+/* ---------- Hero background photo (free Wikimedia Commons API, no key needed) ---------- */
+(function loadHeroPhoto() {
+  const CACHE_KEY = "kashmir_hero_photo_v1";
+  const QUERIES = ["Kashmir valley mountains", "Gulmarg", "Pahalgam valley", "Sonamarg", "Dal Lake Srinagar mountains"];
+
+  // Push the photo's colour into the CSS variables (--h, --s) -> whole UI re-colours
+  function applyTheme(hue, sat) {
+    const root = document.documentElement.style;
+    root.setProperty("--h", Math.round(hue));
+    root.setProperty("--s", Math.round(sat) + "%");
+  }
+
+  // Find the photo's main colour: shrink it to 48x48 and average the hue of the coloured pixels
+  function themeFromImage(img) {
+    const c = document.createElement("canvas");
+    c.width = c.height = 48;
+    const ctx = c.getContext("2d");
+    ctx.drawImage(img, 0, 0, 48, 48);
+    const px = ctx.getImageData(0, 0, 48, 48).data;     // throws if the canvas is "tainted" (no CORS)
+    let x = 0, y = 0, w = 0, sSum = 0;
+    for (let i = 0; i < px.length; i += 4) {
+      const r = px[i] / 255, g = px[i + 1] / 255, b = px[i + 2] / 255;
+      const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min, l = (max + min) / 2;
+      if (d < 0.04) continue;                           // grey / white snow pixels have no real colour
+      const s = d / (1 - Math.abs(2 * l - 1));
+      let h = max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
+      h *= 60; if (h < 0) h += 360;
+      const wt = s * (1 - Math.abs(2 * l - 1));         // more colourful + mid-brightness pixels count more
+      x += Math.cos(h * Math.PI / 180) * wt;
+      y += Math.sin(h * Math.PI / 180) * wt;
+      w += wt; sSum += s * wt;
+    }
+    if (w < 1) return { hue: 205, sat: 60 };            // almost colourless photo -> calm snow blue
+    let hue = Math.atan2(y, x) * 180 / Math.PI; if (hue < 0) hue += 360;
+    return { hue: hue, sat: Math.min(75, Math.max(45, (sSum / w) * 100)) };
+  }
+
+  // Show the photo only after it has fully loaded (no flicker), then theme the page from it
+  function show(p) {
+    if (p.hue !== undefined) applyTheme(p.hue, p.sat);  // saved colours -> instant, no wait
+
+    function paint(img, canTheme) {
+      if (canTheme && p.hue === undefined) {
+        try {
+          const t = themeFromImage(img);
+          p.hue = t.hue; p.sat = t.sat;
+          applyTheme(p.hue, p.sat);
+          localStorage.setItem(CACHE_KEY, JSON.stringify(p));
+        } catch (e) {}                                  // theming failed -> default teal stays
+      }
+      const bg = document.getElementById("hero-bg");
+      bg.style.backgroundImage = "url('" + p.url + "')";
+      bg.classList.add("on");
+      const credit = document.getElementById("photo-credit");
+      credit.textContent = "Photo: " + p.artist + " (" + p.license + ") via ";
+      const a = document.createElement("a");
+      a.href = p.page; a.target = "_blank"; a.rel = "noopener"; a.textContent = "Wikimedia Commons";
+      credit.appendChild(a);
+    }
+
+    const img = new Image();
+    img.crossOrigin = "anonymous";                      // needed so the canvas may read the pixels
+    img.onload = () => paint(img, true);
+    img.onerror = () => {                               // CORS refused -> still show photo, just no auto-colours
+      const fallback = new Image();
+      fallback.onload = () => paint(fallback, false);
+      fallback.src = p.url;
+    };
+    img.src = p.url;
+  }
+
+  // Wikimedia returns HTML in the artist field, so keep only the plain text
+  function plain(html) {
+    return new DOMParser().parseFromString(html || "Unknown", "text/html").body.textContent.trim();
+  }
+
+  // Reuse the saved photo so the page doesn't call the API on every load
+  try {
+    const cached = JSON.parse(localStorage.getItem(CACHE_KEY));
+    if (cached && cached.url) return show(cached);
+  } catch (e) {}
+
+  const q = QUERIES[Math.floor(Math.random() * QUERIES.length)];
+  const api = "https://commons.wikimedia.org/w/api.php?action=query&generator=search"
+    + "&gsrsearch=" + encodeURIComponent(q) + "&gsrnamespace=6&gsrlimit=30"
+    + "&prop=imageinfo&iiprop=url|size|mime|extmetadata&iiurlwidth=1600&format=json&origin=*";
+
+  fetch(api)
+    .then(r => r.json())
+    .then(d => {
+      const pages = Object.values((d.query && d.query.pages) || {});
+      // keep only big landscape JPEGs, skip maps / flags / logos
+      const good = pages.filter(p => {
+        const i = p.imageinfo && p.imageinfo[0];
+        return i && i.mime === "image/jpeg" && i.width >= 1600 && i.width > i.height
+          && !/map|flag|logo|coat|stamp|poster|diagram/i.test(p.title);
+      });
+      if (!good.length) return;                       // nothing found -> keep gradient background
+      const i = good[Math.floor(Math.random() * good.length)].imageinfo[0];
+      const m = i.extmetadata || {};
+      const photo = {
+        url: i.thumburl || i.url,
+        page: i.descriptionurl,
+        artist: plain(m.Artist && m.Artist.value),
+        license: plain(m.LicenseShortName && m.LicenseShortName.value)
+      };
+      try { localStorage.setItem(CACHE_KEY, JSON.stringify(photo)); } catch (e) {}
+      show(photo);
+    })
+    .catch(() => {});                                  // offline / blocked -> gradient stays
+})();
+
+/* ---------- Auto-scroll to result after prediction ---------- */
+const resultBox = document.getElementById("result");
+if (resultBox) resultBox.scrollIntoView({ behavior: "smooth", block: "center" });
+</script>
+</body>
+</html>
